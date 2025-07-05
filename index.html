@@ -1,0 +1,2744 @@
+                mysqlConfig.classList.add('hidden');
+            }
+            
+            appData.dbConfig.type = dbType;
+            saveData();
+        }
+
+        // اختبار اتصال قاعدة البيانات
+        function testDbConnection() {
+            const config = {
+                host: document.getElementById('dbHost').value,
+                user: document.getElementById('dbUser').value,
+                password: document.getElementById('dbPassword').value,
+                database: document.getElementById('dbName').value
+            };
+            
+            // في بيئة حقيقية، هذا يحتاج إلى backend API
+            alert('اختبار الاتصال يحتاج إلى خادم backend للتنفيذ');
+            console.log('MySQL Config:', config);
+        }
+
+        // وظائف التعديل والحذف
+        window.editStudent = function(studentId) {
+            const student = appData.students.find(s => s.id === studentId);
+            if (!student) return;
+            
+            editingId = studentId;
+            showAddStudentModal();
+            
+            setTimeout(() => {
+                document.getElementById('studentId').value = student.id;
+                document.getElementById('studentName').value = student.name;
+                document.getElementById('studentClass').value = student.classId;
+                updateMajorOptions();
+                
+                setTimeout(() => {
+                    document.getElementById('studentMajor').value = student.majorId;
+                    updateSubjectOptions();
+                    
+                    setTimeout(() => {
+                        student.subjectIds.forEach(id => {
+                            const checkbox = document.querySelector(`input[name="subjectIds"][value="${id}"]`);
+                            if (checkbox) checkbox.checked = true;
+                        });
+                    }, 100);
+                }, 100);
+                
+                document.getElementById('studentPassword').value = student.password;
+                document.getElementById('modalTitle').textContent = 'تعديل بيانات الطالب';
+            }, 100);
+        };
+
+        window.deleteStudent = function(studentId) {
+            if (confirm('هل أنت متأكد من حذف هذا الطالب؟')) {
+                appData.students = appData.students.filter(s => s.id !== studentId);
+                appData.connectedStudents = appData.connectedStudents.filter(s => s.id !== studentId);
+                saveData();
+                updateStudentsList();
+                updateAllDisplays();
+                alert('تم حذف الطالب بنجاح');
+            }
+        };
+
+        window.editQuestion = function(index) {
+            const question = appData.questions[index];
+            if (!question) return;
+            
+            editingId = index;
+            showAddQuestionModal();
+            
+            setTimeout(() => {
+                document.getElementById('questionSubject').value = question.subjectId;
+                document.getElementById('questionType').value = question.type;
+                document.getElementById('questionText').value = question.text;
+                document.getElementById('questionAnswer').value = question.correctAnswer;
+                document.getElementById('questionScore').value = question.score;
+                
+                if (question.options) {
+                    const optionsList = document.getElementById('optionsList');
+                    optionsList.innerHTML = '';
+                    question.options.forEach((option, i) => {
+                        const input = document.createElement('input');
+                        input.type = 'text';
+                        input.className = 'option-input block w-full p-3 border border-gray-300 rounded-lg';
+                        input.placeholder = `الخيار ${i + 1}`;
+                        input.value = option;
+                        optionsList.appendChild(input);
+                    });
+                }
+                
+                handleQuestionTypeChange();
+                document.getElementById('modalTitle').textContent = 'تعديل السؤال';
+            }, 100);
+        };
+
+        window.deleteQuestion = function(index) {
+            if (confirm('هل أنت متأكد من حذف هذا السؤال؟')) {
+                appData.questions.splice(index, 1);
+                saveData();
+                updateQuestionsList();
+                updateAllDisplays();
+                alert('تم حذف السؤال بنجاح');
+            }
+        };
+
+        window.editClass = function(classId) {
+            const classItem = getClassById(classId);
+            if (!classItem) return;
+            
+            const newName = prompt('أدخل الاسم الجديد للصف:', classItem.name);
+            if (newName && newName !== classItem.name) {
+                classItem.name = newName;
+                saveData();
+                updateSubjectsTree();
+                updateAllDisplays();
+                alert('تم تحديث اسم الصف بنجاح');
+            }
+        };
+
+        window.deleteClass = function(classId) {
+            if (confirm('هل أنت متأكد من حذف هذا الصف؟ سيتم حذف جميع البيانات المرتبطة به.')) {
+                // حذف الصف
+                appData.classes = appData.classes.filter(c => c.id !== classId);
+                
+                // تحديث التخصصات
+                appData.majors.forEach(major => {
+                    major.classIds = major.classIds.filter(id => id !== classId);
+                });
+                
+                // تحديث المواد
+                appData.subjects.forEach(subject => {
+                    subject.classIds = subject.classIds.filter(id => id !== classId);
+                });
+                
+                // حذف الطلاب في هذا الصف
+                appData.students = appData.students.filter(s => s.classId !== classId);
+                
+                saveData();
+                updateAllDisplays();
+                alert('تم حذف الصف بنجاح');
+            }
+        };
+
+        window.editMajor = function(majorId) {
+            const major = getMajorById(majorId);
+            if (!major) return;
+            
+            const newName = prompt('أدخل الاسم الجديد للتخصص:', major.name);
+            if (newName && newName !== major.name) {
+                major.name = newName;
+                saveData();
+                updateSubjectsTree();
+                updateAllDisplays();
+                alert('تم تحديث اسم التخصص بنجاح');
+            }
+        };
+
+        window.deleteMajor = function(majorId) {
+            if (confirm('هل أنت متأكد من حذف هذا التخصص؟ سيتم حذف جميع البيانات المرتبطة به.')) {
+                // حذف التخصص
+                appData.majors = appData.majors.filter(m => m.id !== majorId);
+                
+                // تحديث المواد
+                appData.subjects.forEach(subject => {
+                    subject.majorIds = subject.majorIds.filter(id => id !== majorId);
+                });
+                
+                // حذف الطلاب في هذا التخصص
+                appData.students = appData.students.filter(s => s.majorId !== majorId);
+                
+                saveData();
+                updateAllDisplays();
+                alert('تم حذف التخصص بنجاح');
+            }
+        };
+
+        window.editSubject = function(subjectId) {
+            const subject = getSubjectById(subjectId);
+            if (!subject) return;
+            
+            const newName = prompt('أدخل الاسم الجديد للمادة:', subject.name);
+            if (newName && newName !== subject.name) {
+                subject.name = newName;
+                saveData();
+                updateSubjectsTree();
+                updateAllDisplays();
+                alert('تم تحديث اسم المادة بنجاح');
+            }
+        };
+
+        window.deleteSubject = function(subjectId) {
+            if (confirm('هل أنت متأكد من حذف هذه المادة؟')) {
+                // حذف المادة
+                appData.subjects = appData.subjects.filter(s => s.id !== subjectId);
+                
+                // تحديث الطلاب
+                appData.students.forEach(student => {
+                    student.subjectIds = student.subjectIds.filter(id => id !== subjectId);
+                });
+                
+                // حذف الأسئلة المرتبطة
+                appData.questions = appData.questions.filter(q => q.subjectId !== subjectId);
+                
+                saveData();
+                updateAllDisplays();
+                alert('تم حذف المادة بنجاح');
+            }
+        };
+
+        // وظائف الاختبار
+        function configureExam() {
+            const duration = parseInt(document.getElementById('examDuration').value);
+            const questionsCount = parseInt(document.getElementById('examQuestionsCount').value);
+            const major = document.getElementById('examMajor').value;
+            
+            if (isNaN(duration) || duration <= 0) {
+                alert('الرجاء إدخال مدة صحيحة للاختبار');
+                return;
+            }
+            
+            if (isNaN(questionsCount) || questionsCount <= 0) {
+                alert('الرجاء إدخال عدد أسئلة صحيح');
+                return;
+            }
+            
+            if (questionsCount > appData.questions.length) {
+                alert(`عدد الأسئلة المطلوب (${questionsCount}) أكبر من الأسئلة المتاحة (${appData.questions.length})`);
+                return;
+            }
+            
+            appData.currentExam = {
+                duration,
+                questionsCount,
+                major,
+                date: new Date().toLocaleString(),
+                examId: Date.now().toString()
+            };
+            
+            saveData();
+            alert('تم حفظ إعدادات الاختبار بنجاح');
+        }
+
+        function startExam() {
+            if (appData.connectedStudents.length === 0) {
+                alert('لا يوجد طلاب متصلين لبدء الاختبار');
+                return;
+            }
+            
+            if (!appData.currentExam) {
+                alert('الرجاء تهيئة إعدادات الاختبار أولاً');
+                return;
+            }
+            
+            appData.connectedStudents.forEach(student => {
+                student.examStatus = 'جاري الاختبار';
+                student.examData = {
+                    startTime: new Date().toLocaleString(),
+                    examId: appData.currentExam.examId
+                };
+            });
+            
+            updateAdminDashboard();
+            saveData();
+            alert(`تم بدء الاختبار لجميع الطلاب المتصلين (${appData.connectedStudents.length} طالب)`);
+        }
+
+        function approveAllStudents() {
+            if (appData.connectedStudents.length === 0) {
+                alert('لا يوجد طلاب متصلين للموافقة عليهم');
+                return;
+            }
+            
+            appData.connectedStudents.forEach(student => {
+                if (student.examStatus === 'في انتظار الموافقة') {
+                    student.examStatus = 'تمت الموافقة';
+                }
+            });
+            
+            updateAdminDashboard();
+            saveData();
+            alert(`تمت الموافقة على جميع الطلاب`);
+        }
+
+        function refreshConnectedStudents() {
+            updateAdminDashboard();
+            alert('تم تحديث قائمة الطلاب المتصلين');
+        }
+
+        // فحص حالة الاختبار للطالب
+        function checkExamStatus(studentId) {
+            const connectedStudent = appData.connectedStudents.find(s => s.id === studentId);
+            if (connectedStudent) {
+                const statusElement = document.getElementById('examStatus');
+                if (statusElement) {
+                    statusElement.textContent = connectedStudent.examStatus;
+                }
+                
+                if (connectedStudent.examStatus === 'جاري الاختبار') {
+                    setTimeout(() => {
+                        showExamScreen();
+                    }, 1000);
+                }
+            }
+            
+            // فحص دوري
+            setTimeout(() => checkExamStatus(studentId), 3000);
+        }
+
+        // عرض شاشة الاختبار
+        function showExamScreen() {
+            if (!appData.currentExam) {
+                alert('لا يوجد اختبار نشط حالياً');
+                return;
+            }
+            
+            hideAllScreens();
+            document.getElementById('studentExamScreen').classList.remove('hidden');
+            document.getElementById('examTitle').textContent = `اختبار ${appData.currentExam.major}`;
+            
+            generateExamQuestions();
+            startExamTimer(appData.currentExam.duration);
+        }
+
+        // توليد أسئلة الاختبار
+        function generateExamQuestions() {
+            const examContainer = document.getElementById('examQuestions');
+            if (!examContainer) return;
+            
+            const student = appData.students.find(s => s.id === appData.currentStudentId);
+            if (!student) return;
+            
+            // فلترة الأسئلة حسب مواد الطالب
+            const studentQuestions = appData.questions.filter(q => 
+                student.subjectIds.includes(q.subjectId)
+            );
+            
+            const questionCount = Math.min(appData.currentExam.questionsCount, studentQuestions.length);
+            
+            // اختيار أسئلة عشوائية
+            const shuffledQuestions = [...studentQuestions].sort(() => 0.5 - Math.random());
+            const selectedQuestions = shuffledQuestions.slice(0, questionCount);
+            
+            examContainer.innerHTML = '';
+            
+            selectedQuestions.forEach((question, index) => {
+                const questionDiv = document.createElement('div');
+                questionDiv.className = 'bg-gray-50 p-6 rounded-xl border border-gray-200';
+                
+                let questionHTML = `
+                    <div class="flex justify-between items-start mb-4">
+                        <h3 class="text-lg font-semibold">السؤال ${index + 1}: ${question.text}</h3>
+                        <span class="bg-purple-100 text-purple-800 text-xs px-2 py-1 rounded">درجة السؤال: ${question.score}</span>
+                    </div>
+                `;
+                
+                if (question.type === 'multiple_choice') {
+                    questionHTML += '<div class="space-y-3">';
+                    question.options.forEach((option, optIndex) => {
+                        questionHTML += `
+                            <label class="flex items-center p-3 border border-gray-300 rounded-lg cursor-pointer hover:bg-purple-50">
+                                <input type="radio" name="q${index}" value="${option}" class="ml-2 text-purple-600">
+                                <span>${option}</span>
+                            </label>
+                        `;
+                    });
+                    questionHTML += '</div>';
+                } else if (question.type === 'multiple_select') {
+                    questionHTML += '<div class="space-y-3">';
+                    question.options.forEach((option, optIndex) => {
+                        questionHTML += `
+                            <label class="flex items-center p-3 border border-gray-300 rounded-lg cursor-pointer hover:bg-purple-50">
+                                <input type="checkbox" name="q${index}" value="${option}" class="ml-2 text-purple-600">
+                                <span>${option}</span>
+                            </label>
+                        `;
+                    });
+                    questionHTML += '</div>';
+                } else if (question.type === 'essay') {
+                    questionHTML += `
+                        <textarea name="q${index}" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500" 
+                                 rows="4" placeholder="اكتب إجابتك هنا..."></textarea>
+                    `;
+                }
+                
+                questionDiv.innerHTML = questionHTML;
+                examContainer.appendChild(questionDiv);
+            });
+            
+            // حفظ الأسئلة المختارة
+            appData.currentExamQuestions = selectedQuestions;
+        }
+
+        // بدء مؤقت الاختبار
+        function startExamTimer(minutes) {
+            let timeLeft = minutes * 60;
+            
+            appData.examTimer = setInterval(() => {
+                const mins = Math.floor(timeLeft / 60);
+                const secs = timeLeft % 60;
+                const formattedTime = `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+                
+                const timerElement = document.getElementById('examTimer');
+                if (timerElement) {
+                    timerElement.textContent = formattedTime;
+                    
+                    if (timeLeft <= 300) { // آخر 5 دقائق
+                        timerElement.parentElement.className = 'bg-red-100 text-red-800 px-4 py-2 rounded-full font-semibold';
+                    } else if (timeLeft <= 600) { // آخر 10 دقائق
+                        timerElement.parentElement.className = 'bg-yellow-100 text-yellow-800 px-4 py-2 rounded-full font-semibold';
+                    }
+                }
+                
+                timeLeft--;
+                
+                if (timeLeft < 0) {
+                    clearInterval(appData.examTimer);
+                    alert('انتهى وقت الاختبار');
+                    submitExam();
+                }
+            }, 1000);
+        }
+
+        // تسليم الاختبار
+        function submitExam() {
+            if (appData.examTimer) {
+                clearInterval(appData.examTimer);
+                appData.examTimer = null;
+            }
+            
+            const result = calculateExamScore();
+            const studentId = appData.currentStudentId;
+            const student = appData.students.find(s => s.id === studentId);
+            
+            if (student) {
+                if (!appData.examResults) {
+                    appData.examResults = [];
+                }
+                
+                appData.examResults.push({
+                    studentId: student.id,
+                    studentName: student.name,
+                    classId: student.classId,
+                    majorId: student.majorId,
+                    score: result.score,
+                    totalScore: result.totalScore,
+                    maxScore: result.maxScore,
+                    date: new Date().toLocaleString(),
+                    examId: appData.currentExam?.examId,
+                    answers: result.answers
+                });
+                
+                const connectedStudent = appData.connectedStudents.find(s => s.id === student.id);
+                if (connectedStudent) {
+                    connectedStudent.examStatus = 'مكتمل';
+                    connectedStudent.score = result.score;
+                }
+                
+                saveData();
+            }
+            
+            alert(`تم تسليم الاختبار بنجاح\nدرجتك: ${result.score}/100\nالدرجة الفعلية: ${result.totalScore}/${result.maxScore}`);
+            
+            handleLogout();
+        }
+
+        // حساب درجة الاختبار
+        function calculateExamScore() {
+            const questionElements = document.querySelectorAll('#examQuestions > div');
+            let totalScore = 0;
+            let maxScore = 0;
+            const answers = [];
+            
+            questionElements.forEach((element, index) => {
+                const question = appData.currentExamQuestions[index];
+                if (!question) return;
+                
+                maxScore += question.score;
+                let studentAnswer = '';
+                let isCorrect = false;
+                
+                if (question.type === 'multiple_choice') {
+                    const selected = element.querySelector(`input[name="q${index}"]:checked`);
+                    if (selected) {
+                        studentAnswer = selected.value;
+                        isCorrect = studentAnswer === question.correctAnswer;
+                        if (isCorrect) totalScore += question.score;
+                    }
+                } else if (question.type === 'multiple_select') {
+                    const selected = Array.from(element.querySelectorAll(`input[name="q${index}"]:checked`))
+                        .map(input => input.value);
+                    studentAnswer = selected.join(', ');
+                    const correct = question.correctAnswer.split(',').map(s => s.trim());
+                    isCorrect = selected.length === correct.length && 
+                               selected.every(val => correct.includes(val));
+                    if (isCorrect) totalScore += question.score;
+                } else if (question.type === 'essay') {
+                    const textarea = element.querySelector(`textarea[name="q${index}"]`);
+                    if (textarea) {
+                        studentAnswer = textarea.value.trim();
+                        if (studentAnswer.length > 20) {
+                            const partialScore = Math.floor(question.score * 0.7);
+                            totalScore += partialScore;
+                            isCorrect = true;
+                        }
+                    }
+                }
+                
+                answers.push({
+                    questionText: question.text,
+                    studentAnswer,
+                    correctAnswer: question.correctAnswer,
+                    isCorrect,
+                    score: isCorrect ? question.score : 0,
+                    maxScore: question.score
+                });
+            });
+            
+            const percentageScore = maxScore > 0 ? Math.round((totalScore / maxScore) * 100) : 0;
+            
+            return {
+                score: percentageScore,
+                totalScore,
+                maxScore,
+                answers
+            };
+        }
+
+        // تسجيل الخروج
+        function handleLogout() {
+            if (appData.examTimer) {
+                clearInterval(appData.examTimer);
+                appData.examTimer = null;
+            }
+            
+            if (appData.currentStudentId) {
+                appData.connectedStudents = appData.connectedStudents.filter(s => s.id !== appData.currentStudentId);
+                appData.currentStudentId = null;
+                saveData();
+            }
+            
+            hideAllScreens();
+            document.getElementById('loginScreen').classList.remove('hidden');
+            document.getElementById('loginForm').reset();
+        }
+
+        // وظائف الاستيراد والتصدير
+        function importData(dataType) {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.xlsx,.xls';
+            input.onchange = e => handleExcelImport(e.target.files[0], dataType);
+            input.click();
+        }
+
+        function exportData(dataType) {
+            try {
+                let workbook = XLSX.utils.book_new();
+                let fileName = '';
+
+                switch (dataType) {
+                    case 'students':
+                        exportStudentsData(workbook);
+                        fileName = 'students_data.xlsx';
+                        break;
+                    case 'questions':
+                        exportQuestionsData(workbook);
+                        fileName = 'questions_bank.xlsx';
+                        break;
+                    case 'results':
+                        exportResultsData(workbook);
+                        fileName = 'exam_results.xlsx';
+                        break;
+                    case 'all':
+                        exportAllData(workbook);
+                        fileName = 'complete_system_data.xlsx';
+                        break;
+                }
+
+                if (workbook.SheetNames.length === 0) {
+                    alert('لا توجد بيانات للتصدير');
+                    return;
+                }
+
+                XLSX.writeFile(workbook, fileName);
+                alert(`تم تصدير البيانات بنجاح إلى ملف: ${fileName}`);
+                
+            } catch (error) {
+                console.error('خطأ في تصدير البيانات:', error);
+                alert('خطأ في تصدير البيانات');
+            }
+        }
+
+        function exportStudentsData(workbook) {
+            const studentsData = appData.students.map(student => ({
+                'رقم الجلوس': student.id,
+                'اسم الطالب': student.name,
+                'الصف': getClassById(student.classId)?.name || '',
+                'التخصص': getMajorById(student.majorId)?.name || '',
+                'المواد': student.subjectIds.map(id => getSubjectById(id)?.name).filter(Boolean).join(', '),
+                'كلمة المرور': student.password,
+                'البريد الإلكتروني': student.email || ''
+            }));
+            
+            const worksheet = XLSX.utils.json_to_sheet(studentsData);
+            XLSX.utils.book_append_sheet(workbook, worksheet, "الطلاب");
+        }
+
+        function exportQuestionsData(workbook) {
+            const questionsData = appData.questions.map(question => ({
+                'المادة': getSubjectById(question.subjectId)?.name || '',
+                'السؤال': question.text,
+                'النوع': getQuestionTypeText(question.type),
+                'الخيارات': question.options ? question.options.join(', ') : '',
+                'الإجابة الصحيحة': question.correctAnswer,
+                'الدرجة': question.score
+            }));
+            
+            const worksheet = XLSX.utils.json_to_sheet(questionsData);
+            XLSX.utils.book_append_sheet(workbook, worksheet, "الأسئلة");
+        }
+
+        function exportResultsData(workbook) {
+            const resultsData = (appData.examResults || []).map(result => ({
+                'رقم الجلوس': result.studentId,
+                'اسم الطالب': result.studentName,
+                'الصف': getClassById(result.classId)?.name || '',
+                'التخصص': getMajorById(result.majorId)?.name || '',
+                'الدرجة المئوية': result.score,
+                'الدرجة الفعلية': result.totalScore,
+                'الدرجة الكاملة': result.maxScore,
+                'تاريخ الاختبار': result.date,
+                'معرف الاختبار': result.examId
+            }));
+            
+            const worksheet = XLSX.utils.json_to_sheet(resultsData);
+            XLSX.utils.book_append_sheet(workbook, worksheet, "النتائج");
+        }
+
+        function exportAllData(workbook) {
+            exportStudentsData(workbook);
+            exportQuestionsData(workbook);
+            
+            // تصدير الصفوف
+            const classesData = appData.classes.map(c => ({ 'الصف': c.name }));
+            const classesWorksheet = XLSX.utils.json_to_sheet(classesData);
+            XLSX.utils.book_append_sheet(workbook, classesWorksheet, "الصفوف");
+            
+            // تصدير التخصصات
+            const majorsData = appData.majors.map(m => ({
+                'التخصص': m.name,
+                'الصفوف': m.classIds.map(id => getClassById(id)?.name).filter(Boolean).join(', ')
+            }));
+            const majorsWorksheet = XLSX.utils.json_to_sheet(majorsData);
+            XLSX.utils.book_append_sheet(workbook, majorsWorksheet, "التخصصات");
+            
+            // تصدير المواد
+            const subjectsData = appData.subjects.map(s => ({
+                'المادة': s.name,
+                'التخصصات': s.majorIds.map(id => getMajorById(id)?.name).filter(Boolean).join(', '),
+                'الصفوف': s.classIds.map(id => getClassById(id)?.name).filter(Boolean).join(', ')
+            }));
+            const subjectsWorksheet = XLSX.utils.json_to_sheet(subjectsData);
+            XLSX.utils.book_append_sheet(workbook, subjectsWorksheet, "المواد");
+            
+            if (appData.examResults && appData.examResults.length > 0) {
+                exportResultsData(workbook);
+            }
+        }
+
+        function handleExcelImport(file, dataType) {
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                    const jsonData = XLSX.utils.sheet_to_json(firstSheet);
+                    
+                    switch (dataType) {
+                        case 'students':
+                            processStudentsImport(jsonData);
+                            break;
+                        case 'questions':
+                            processQuestionsImport(jsonData);
+                            break;
+                        case 'all':
+                            processAllDataImport(workbook);
+                            break;
+                    }
+                } catch (error) {
+                    console.error('خطأ في استيراد الملف:', error);
+                    alert('خطأ في استيراد الملف. تأكد من صحة تنسيق الملف.');
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function processStudentsImport(data) {
+            let importedCount = 0;
+            let errors = [];
+            
+            data.forEach((row, index) => {
+                try {
+                    const password = row['كلمة المرور'] || generateRandomPassword();
+                    
+                    if (!/^[0-9]{5}$/.test(password)) {
+                        errors.push(`الصف ${index + 2}: كلمة المرور يجب أن تكون 5 أرقام`);
+                        return;
+                    }
+                    
+                    const student = {
+                        id: row['رقم الجلوس'] || '',
+                        name: row['اسم الطالب'] || '',
+                        classId: 1, // افتراضي
+                        majorId: 1, // افتراضي
+                        subjectIds: [1], // افتراضي
+                        password: password,
+                        email: row['البريد الإلكتروني'] || `${row['رقم الجلوس']}@student.edu`
+                    };
+                    
+                    if (!student.id || !student.name) {
+                        errors.push(`الصف ${index + 2}: رقم الجلوس والاسم مطلوبان`);
+                        return;
+                    }
+                    
+                    if (appData.students.some(s => s.id === student.id)) {
+                        errors.push(`الصف ${index + 2}: رقم الجلوس ${student.id} موجود مسبقاً`);
+                        return;
+                    }
+                    
+                    appData.students.push(student);
+                    importedCount++;
+                } catch (error) {
+                    errors.push(`الصف ${index + 2}: خطأ في البيانات`);
+                }
+            });
+            
+            saveData();
+            updateStudentsList();
+            updateAllDisplays();
+            
+            let message = `تم استيراد ${importedCount} طالب بنجاح`;
+            if (errors.length > 0) {
+                message += `\n\nأخطاء:\n${errors.slice(0, 10).join('\n')}`;
+                if (errors.length > 10) {
+                    message += `\n... و ${errors.length - 10} أخطاء أخرى`;
+                }
+            }
+            alert(message);
+        }
+
+        function processQuestionsImport(data) {
+            let importedCount = 0;
+            let errors = [];
+            
+            data.forEach((row, index) => {
+                try {
+                    const question = {
+                        subjectId: 1, // افتراضي
+                        text: row['السؤال'] || '',
+                        type: 'multiple_choice', // افتراضي
+                        correctAnswer: row['الإجابة الصحيحة'] || '',
+                        score: parseInt(row['الدرجة'] || 1)
+                    };
+                    
+                    const optionsText = row['الخيارات'] || '';
+                    if (optionsText) {
+                        question.options = optionsText.split(',').map(opt => opt.trim());
+                    }
+                    
+                    if (!question.text || !question.correctAnswer) {
+                        errors.push(`الصف ${index + 2}: السؤال والإجابة الصحيحة مطلوبان`);
+                        return;
+                    }
+                    
+                    appData.questions.push(question);
+                    importedCount++;
+                } catch (error) {
+                    errors.push(`الصف ${index + 2}: خطأ في البيانات`);
+                }
+            });
+            
+            saveData();
+            updateQuestionsList();
+            updateAllDisplays();
+            
+            let message = `تم استيراد ${importedCount} سؤال بنجاح`;
+            if (errors.length > 0) {
+                message += `\n\nأخطاء:\n${errors.slice(0, 10).join('\n')}`;
+            }
+            alert(message);
+        }
+
+        function processAllDataImport(workbook) {
+            try {
+                if (workbook.SheetNames.includes('الطلاب')) {
+                    const studentsSheet = workbook.Sheets['الطلاب'];
+                    const studentsData = XLSX.utils.sheet_to_json(studentsSheet);
+                    processStudentsImport(studentsData);
+                }
+                
+                if (workbook.SheetNames.includes('الأسئلة')) {
+                    const questionsSheet = workbook.Sheets['الأسئلة'];
+                    const questionsData = XLSX.utils.sheet_to_json(questionsSheet);
+                    processQuestionsImport(questionsData);
+                }
+                
+                alert('تم استيراد البيانات بنجاح');
+            } catch (error) {
+                console.error('خطأ في استيراد البيانات:', error);
+                alert('خطأ في استيراد البيانات');
+            }
+        }
+
+        function createBackup() {
+            const backup = {
+                timestamp: new Date().toISOString(),
+                version: '2.0',
+                data: appData
+            };
+            
+            const dataStr = JSON.stringify(backup, null, 2);
+            const dataBlob = new Blob([dataStr], {type: 'application/json'});
+            
+            const url = URL.createObjectURL(dataBlob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `exam_system_backup_${new Date().toISOString().split('T')[0]}.json`;
+            link.click();
+            
+            URL.revokeObjectURL(url);
+            alert('تم إنشاء النسخة الاحتياطية بنجاح');
+        }
+
+        function restoreBackup() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.json';
+            input.onchange = function(e) {
+                const file = e.target.files[0];
+                if (!file) return;
+                
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    try {
+                        const backup = JSON.parse(event.target.result);
+                        if (backup.data) {
+                            if (confirm('هل أنت متأكد من استعادة النسخة الاحتياطية؟ سيتم استبدال جميع البيانات الحالية.')) {
+                                Object.assign(appData, backup.data);
+                                saveData();
+                                updateAllDisplays();
+                                alert('تم استعادة النسخة الاحتياطية بنجاح');
+                            }
+                        } else {
+                            alert('ملف النسخة الاحتياطية غير صحيح');
+                        }
+                    } catch (error) {
+                        alert('خطأ في قراءة ملف النسخة الاحتياطية');
+                    }
+                };
+                reader.readAsText(file);
+            };
+            input.click();
+        }
+
+        function clearAllData() {
+            if (confirm('هل أنت متأكد من مسح جميع البيانات؟ هذا الإجراء لا يمكن التراجع عنه.')) {
+                if (appData.examTimer) {
+                    clearInterval(appData.examTimer);
+                    appData.examTimer = null;
+                }
+                
+                // إعادة تعيين البيانات مع الحفاظ على البيانات الافتراضية
+                appData.students = [];
+                appData.questions = [];
+                appData.connectedStudents = [];
+                appData.examResults = [];
+                appData.currentExam = null;
+                appData.currentStudentId = null;
+                
+                // الحفاظ على البيانات الأساسية
+                // appData.classes, majors, subjects تبقى كما هي
+                
+                saveData();
+                updateAllDisplays();
+                alert('تم مسح البيانات بنجاح');
+            }
+        }
+
+        // إضافة بعض البيانات التجريبية
+        function addSampleData() {
+            // إضافة طلاب تجريبيين
+            appData.students = [
+                {
+                    id: '2023001',
+                    name: 'أحمد محمد علي',
+                    classId: 1,
+                    majorId: 1,
+                    subjectIds: [1, 2, 3, 4],
+                    password: '12345',
+                    email: '2023001@student.edu'
+                },
+                {
+                    id: '2023002',
+                    name: 'سارة عبد الرحمن',
+                    classId: 2,
+                    majorId: 2,
+                    subjectIds: [1, 2, 8, 9, 10],
+                    password: '54321',
+                    email: '2023002@student.edu'
+                },
+                {
+                    id: '2023003',
+                    name: 'محمد حسن',
+                    classId: 3,
+                    majorId: 3,
+                    subjectIds: [2, 13, 14],
+                    password: '11111',
+                    email: '2023003@student.edu'
+                }
+            ];
+
+            // إضافة أسئلة تجريبية
+            appData.questions = [
+                {
+                    subjectId: 1,
+                    text: "ما هو ناتج 5 + 3؟",
+                    type: 'multiple_choice',
+                    options: ['6', '7', '8', '9'],
+                    correctAnswer: "8",
+                    score: 2
+                },
+                {
+                    subjectId: 2,
+                    text: "Choose the correct form: I ___ to school every day.",
+                    type: 'multiple_choice',
+                    options: ['go', 'goes', 'going', 'went'],
+                    correctAnswer: "go",
+                    score: 2
+                },
+                {
+                    subjectId: 4,
+                    text: "ما هي لغة البرمجة الأكثر استخداماً في تطوير الويب؟",
+                    type: 'multiple_choice',
+                    options: ['Python', 'JavaScript', 'Java', 'C++'],
+                    correctAnswer: "JavaScript",
+                    score: 3
+                },
+                {
+                    subjectId: 6,
+                    text: "اختر الإجابات الصحيحة حول أنواع قواعد البيانات:",
+                    type: 'multiple_select',
+                    options: ['SQL', 'NoSQL', 'Graph', 'XML'],
+                    correctAnswer: "SQL,NoSQL,Graph",
+                    score: 4
+                },
+                {
+                    subjectId: 4,
+                    text: "اكتب تعريفاً مختصراً للبرمجة الشيئية:",
+                    type: 'essay',
+                    correctAnswer: "نموذج برمجي يعتمد على الكائنات والفئات",
+                    score: 5
+                },
+                {
+                    subjectId: 13,
+                    text: "ما هو الخوارزمية المستخدمة في التشفير المتماثل؟",
+                    type: 'multiple_choice',
+                    options: ['AES', 'RSA', 'DSA', 'ECC'],
+                    correctAnswer: "AES",
+                    score: 3
+                },
+                {
+                    subjectId: 5,
+                    text: "أي من التالي يستخدم مبدأ LIFO؟",
+                    type: 'multiple_choice',
+                    options: ['Queue', 'Stack', 'Array', 'Linked List'],
+                    correctAnswer: "Stack",
+                    score: 2
+                }
+            ];
+
+            saveData();
+            updateAllDisplays();
+        }
+
+        // تشغيل البيانات التجريبية عند التحميل الأول
+        if (appData.students.length === 0 && appData.questions.length === 0) {
+            addSampleData();
+        }
+
+        console.log('نظام الاختبارات الإلكترونية المحسّن جاهز للاستخدام');
+        console.log('بيانات تسجيل الدخول:');
+        console.log('مسؤول النظام: admin / admin123');
+        console.log('طالب تجريبي: 2023001 / 12345');
+    </script>
+</body>
+</html><!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>نظام الاختبارات الإلكترونية</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&display=swap');
+        
+        body {
+            font-family: 'Tajawal', sans-serif;
+            direction: rtl;
+            text-align: right;
+            background-color: #f8fafc;
+        }
+        
+        /* تحسينات الواجهة */
+        .glass-effect {
+            backdrop-filter: blur(10px);
+            background: rgba(255, 255, 255, 0.95);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.1);
+        }
+        
+        .gradient-bg {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        
+        .card-hover {
+            transition: all 0.3s ease;
+        }
+        
+        .card-hover:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 20px rgba(0, 0, 0, 0.1);
+        }
+        
+        /* شريط التمرير المخصص */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+        
+        /* الهيكل الشجري المحسن */
+        .tree-node {
+            transition: all 0.3s ease;
+            border-radius: 8px;
+            margin-bottom: 8px;
+        }
+        
+        .tree-node:hover {
+            background-color: rgba(59, 130, 246, 0.1);
+        }
+        
+        .tree-content {
+            display: none;
+            margin-right: 20px;
+            padding-right: 20px;
+            border-right: 2px solid #e5e7eb;
+        }
+        
+        .tree-content.expanded {
+            display: block;
+            animation: slideDown 0.3s ease-out;
+        }
+        
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        /* تحسينات الأزرار */
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+        
+        /* رسوم متحركة محسنة */
+        .fade-in {
+            animation: fadeIn 0.5s ease-in;
+        }
+        
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        /* تحسين الجداول */
+        .modern-table {
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.05);
+        }
+        
+        .modern-table th {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            font-weight: 600;
+            padding: 15px;
+            text-align: right;
+        }
+        
+        .modern-table td {
+            padding: 12px 15px;
+            border-bottom: 1px solid #f3f4f6;
+        }
+        
+        .modern-table tr:hover {
+            background-color: #f9fafb;
+        }
+        
+        /* نافذة منبثقة محسنة */
+        .modal-backdrop {
+            backdrop-filter: blur(5px);
+            background: rgba(0, 0, 0, 0.5);
+        }
+        
+        .modal-content {
+            animation: modalSlideIn 0.3s ease-out;
+        }
+        
+        @keyframes modalSlideIn {
+            from {
+                transform: scale(0.9) translateY(-20px);
+                opacity: 0;
+            }
+            to {
+                transform: scale(1) translateY(0);
+                opacity: 1;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <!-- Login Screen -->
+    <div id="loginScreen" class="flex items-center justify-center min-h-screen gradient-bg">
+        <div class="w-full max-w-md p-8 space-y-8 glass-effect rounded-2xl shadow-2xl fade-in">
+            <div class="text-center">
+                <div class="mx-auto h-24 w-24 bg-white rounded-full flex items-center justify-center shadow-lg">
+                    <i class="fas fa-graduation-cap text-purple-600 text-4xl"></i>
+                </div>
+                <h2 class="mt-6 text-3xl font-extrabold text-gray-900">نظام الاختبارات الإلكترونية</h2>
+                <p class="mt-2 text-sm text-gray-600">الرجاء تسجيل الدخول للوصول لواجهة الاختبارات</p>
+            </div>
+            <form id="loginForm" class="mt-8 space-y-6">
+                <div class="rounded-md shadow-sm space-y-4">
+                    <div>
+                        <label for="user-type" class="block text-sm font-medium text-gray-700">نوع المستخدم</label>
+                        <select id="user-type" class="mt-1 block w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                            <option value="admin">مسؤول النظام</option>
+                            <option value="student">طالب</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="id-number" class="block text-sm font-medium text-gray-700">رقم الهوية</label>
+                        <input id="id-number" type="text" class="mt-1 block w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                    </div>
+                    <div>
+                        <label for="password" class="block text-sm font-medium text-gray-700">كلمة المرور</label>
+                        <input id="password" type="password" class="mt-1 block w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                    </div>
+                </div>
+                <div>
+                    <button type="submit" class="w-full btn-primary">
+                        تسجيل الدخول
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Admin Dashboard -->
+    <div id="adminDashboard" class="hidden">
+        <div class="flex h-screen bg-gray-100">
+            <!-- Sidebar -->
+            <div class="w-64 gradient-bg text-white p-4 flex flex-col shadow-xl">
+                <h2 class="text-xl font-bold mb-6 flex items-center">
+                    <i class="fas fa-dashboard ml-2"></i>
+                    لوحة التحكم
+                </h2>
+                <nav class="flex-1">
+                    <a href="#" class="nav-link flex items-center py-3 px-4 rounded-lg hover:bg-white hover:bg-opacity-20 transition-all duration-200 mb-2 active" data-content="dashboard">
+                        <i class="fas fa-home ml-2"></i>
+                        الرئيسية
+                    </a>
+                    <a href="#" class="nav-link flex items-center py-3 px-4 rounded-lg hover:bg-white hover:bg-opacity-20 transition-all duration-200 mb-2" data-content="students">
+                        <i class="fas fa-users ml-2"></i>
+                        إدارة الطلبة
+                    </a>
+                    <a href="#" class="nav-link flex items-center py-3 px-4 rounded-lg hover:bg-white hover:bg-opacity-20 transition-all duration-200 mb-2" data-content="questions">
+                        <i class="fas fa-question-circle ml-2"></i>
+                        إدارة الأسئلة
+                    </a>
+                    <a href="#" class="nav-link flex items-center py-3 px-4 rounded-lg hover:bg-white hover:bg-opacity-20 transition-all duration-200 mb-2" data-content="subjects">
+                        <i class="fas fa-book ml-2"></i>
+                        إدارة المواد الدراسية
+                    </a>
+                    <a href="#" class="nav-link flex items-center py-3 px-4 rounded-lg hover:bg-white hover:bg-opacity-20 transition-all duration-200 mb-2" data-content="database">
+                        <i class="fas fa-database ml-2"></i>
+                        قاعدة البيانات
+                    </a>
+                </nav>
+                <button id="logoutAdmin" class="flex items-center py-3 px-4 rounded-lg hover:bg-white hover:bg-opacity-20 transition-all duration-200 w-full">
+                    <i class="fas fa-sign-out-alt ml-2"></i>
+                    تسجيل الخروج
+                </button>
+            </div>
+            
+            <!-- Main Content -->
+            <div class="flex-1 overflow-auto">
+                <!-- Dashboard Content -->
+                <div id="dashboard-content" class="content-section p-6">
+                    <div class="mb-6">
+                        <h1 class="text-3xl font-bold text-gray-800">مرحباً بك في لوحة التحكم</h1>
+                        <p class="text-gray-600 mt-2">نظرة عامة على النظام</p>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                        <div class="card-hover bg-gradient-to-br from-blue-500 to-blue-600 text-white p-6 rounded-xl shadow-lg">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <h3 class="font-medium text-blue-100">الطلاب المسجلين</h3>
+                                    <p class="text-3xl font-bold mt-2" id="studentsCount">0</p>
+                                </div>
+                                <i class="fas fa-users text-4xl text-blue-200"></i>
+                            </div>
+                        </div>
+                        
+                        <div class="card-hover bg-gradient-to-br from-green-500 to-green-600 text-white p-6 rounded-xl shadow-lg">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <h3 class="font-medium text-green-100">الطلاب المتصلين</h3>
+                                    <p class="text-3xl font-bold mt-2" id="connectedStudentsCount">0</p>
+                                </div>
+                                <i class="fas fa-wifi text-4xl text-green-200"></i>
+                            </div>
+                        </div>
+                        
+                        <div class="card-hover bg-gradient-to-br from-purple-500 to-purple-600 text-white p-6 rounded-xl shadow-lg">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <h3 class="font-medium text-purple-100">الأسئلة المتاحة</h3>
+                                    <p class="text-3xl font-bold mt-2" id="questionsCount">0</p>
+                                </div>
+                                <i class="fas fa-question-circle text-4xl text-purple-200"></i>
+                            </div>
+                        </div>
+                        
+                        <div class="card-hover bg-gradient-to-br from-orange-500 to-orange-600 text-white p-6 rounded-xl shadow-lg">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <h3 class="font-medium text-orange-100">المواد الدراسية</h3>
+                                    <p class="text-3xl font-bold mt-2" id="subjectsCount">0</p>
+                                </div>
+                                <i class="fas fa-book text-4xl text-orange-200"></i>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Connected Students Table -->
+                    <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+                        <div class="flex justify-between items-center mb-4">
+                            <h2 class="text-xl font-bold text-gray-800">الطلاب المتصلين</h2>
+                            <button id="refreshStudentsBtn" class="text-purple-600 hover:text-purple-800 transition-colors">
+                                <i class="fas fa-sync-alt ml-1"></i> تحديث
+                            </button>
+                        </div>
+                        <div class="overflow-auto">
+                            <table class="min-w-full modern-table">
+                                <thead>
+                                    <tr>
+                                        <th>رقم الجلوس</th>
+                                        <th>الاسم</th>
+                                        <th>التخصص</th>
+                                        <th>الحالة</th>
+                                        <th>الدرجة</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="connectedStudentsList">
+                                    <!-- Students will be loaded here -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <!-- Exam Settings -->
+                    <div class="bg-white rounded-xl shadow-lg p-6">
+                        <h2 class="text-xl font-bold mb-4 text-gray-800">إعدادات الاختبار</h2>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">مدة الاختبار (دقائق)</label>
+                                <input type="number" id="examDuration" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500" value="30">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">عدد الأسئلة</label>
+                                <input type="number" id="examQuestionsCount" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500" value="10">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">التخصص</label>
+                                <select id="examMajor" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500">
+                                    <option>علوم الحاسوب</option>
+                                    <option>هندسة البرمجيات</option>
+                                    <option>أمن المعلومات</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="flex flex-wrap gap-3">
+                            <button id="configureExamBtn" class="bg-yellow-500 hover:bg-yellow-600 text-white py-2 px-4 rounded-lg flex items-center transition-colors">
+                                <i class="fas fa-cog ml-2"></i> تهيئة الاختبار
+                            </button>
+                            <button id="startExamBtn" class="bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded-lg flex items-center transition-colors">
+                                <i class="fas fa-play ml-2"></i> بدء الاختبار
+                            </button>
+                            <button id="approveAllBtn" class="bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded-lg flex items-center transition-colors">
+                                <i class="fas fa-check-circle ml-2"></i> الموافقة للجميع
+                            </button>
+                            <button id="exportResultsBtn" class="bg-purple-500 hover:bg-purple-600 text-white py-2 px-4 rounded-lg flex items-center transition-colors">
+                                <i class="fas fa-file-export ml-2"></i> تصدير النتائج
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Students Management -->
+                <div id="students-content" class="content-section hidden p-6">
+                    <div class="bg-white rounded-xl shadow-lg p-6">
+                        <div class="flex justify-between items-center mb-6">
+                            <h2 class="text-2xl font-bold text-gray-800">إدارة الطلاب</h2>
+                            <div class="flex gap-3">
+                                <button id="addStudentBtn" class="bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded-lg flex items-center transition-colors">
+                                    <i class="fas fa-plus ml-2"></i> إضافة طالب
+                                </button>
+                                <button id="importStudentsBtn" class="bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded-lg flex items-center transition-colors">
+                                    <i class="fas fa-file-import ml-2"></i> استيراد طلاب
+                                </button>
+                                <button id="exportStudentsBtn" class="bg-purple-500 hover:bg-purple-600 text-white py-2 px-4 rounded-lg flex items-center transition-colors">
+                                    <i class="fas fa-file-export ml-2"></i> تصدير الطلاب
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- Search Box -->
+                        <div class="mb-6">
+                            <input type="text" id="studentSearch" placeholder="البحث في الطلاب (الاسم، رقم الجلوس، التخصص...)" 
+                                   class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500">
+                        </div>
+                        
+                        <div class="overflow-auto">
+                            <table class="min-w-full modern-table">
+                                <thead>
+                                    <tr>
+                                        <th>رقم الجلوس</th>
+                                        <th>الاسم</th>
+                                        <th>الصف</th>
+                                        <th>التخصص</th>
+                                        <th>المواد</th>
+                                        <th>كلمة المرور</th>
+                                        <th>الإجراءات</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="studentsList">
+                                    <!-- Students will be loaded here -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Questions Management -->
+                <div id="questions-content" class="content-section hidden p-6">
+                    <div class="bg-white rounded-xl shadow-lg p-6">
+                        <div class="flex justify-between items-center mb-6">
+                            <h2 class="text-2xl font-bold text-gray-800">إدارة الأسئلة</h2>
+                            <div class="flex gap-3">
+                                <button id="addQuestionBtn" class="bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded-lg flex items-center transition-colors">
+                                    <i class="fas fa-plus ml-2"></i> إضافة سؤال
+                                </button>
+                                <button id="importQuestionsBtn" class="bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded-lg flex items-center transition-colors">
+                                    <i class="fas fa-file-import ml-2"></i> استيراد أسئلة
+                                </button>
+                                <button id="exportQuestionsBtn" class="bg-purple-500 hover:bg-purple-600 text-white py-2 px-4 rounded-lg flex items-center transition-colors">
+                                    <i class="fas fa-file-export ml-2"></i> تصدير الأسئلة
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- Search Box -->
+                        <div class="mb-6">
+                            <input type="text" id="questionSearch" placeholder="البحث في الأسئلة (نص السؤال، المادة...)" 
+                                   class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500">
+                        </div>
+                        
+                        <!-- Questions List -->
+                        <div class="overflow-auto">
+                            <table class="min-w-full modern-table">
+                                <thead>
+                                    <tr>
+                                        <th>المادة</th>
+                                        <th>السؤال</th>
+                                        <th>النوع</th>
+                                        <th>الإجابة الصحيحة</th>
+                                        <th>الدرجة</th>
+                                        <th>الإجراءات</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="questionsList">
+                                    <!-- Questions will be loaded here -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Subjects Management -->
+                <div id="subjects-content" class="content-section hidden p-6">
+                    <div class="bg-white rounded-xl shadow-lg p-6">
+                        <div class="flex justify-between items-center mb-6">
+                            <h2 class="text-2xl font-bold text-gray-800">إدارة المواد الدراسية</h2>
+                            <div class="flex gap-3">
+                                <button id="addClassBtn" class="bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded-lg flex items-center transition-colors">
+                                    <i class="fas fa-layer-group ml-2"></i> إضافة صف
+                                </button>
+                                <button id="addMajorBtn" class="bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded-lg flex items-center transition-colors">
+                                    <i class="fas fa-graduation-cap ml-2"></i> إضافة تخصص
+                                </button>
+                                <button id="addSubjectBtn" class="bg-purple-500 hover:bg-purple-600 text-white py-2 px-4 rounded-lg flex items-center transition-colors">
+                                    <i class="fas fa-book ml-2"></i> إضافة مادة
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- Subjects Tree Structure -->
+                        <div class="bg-gray-50 p-6 rounded-xl">
+                            <h3 class="text-lg font-semibold mb-4 text-gray-800">الهيكل الدراسي</h3>
+                            <div id="subjectsTree">
+                                <!-- Tree structure will be loaded here -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Database Management -->
+                <div id="database-content" class="content-section hidden p-6">
+                    <div class="bg-white rounded-xl shadow-lg p-6">
+                        <h2 class="text-2xl font-bold mb-6 text-gray-800">إدارة قاعدة البيانات</h2>
+                        
+                        <!-- Database Connection -->
+                        <div class="bg-gray-50 p-6 rounded-xl mb-6">
+                            <h3 class="font-semibold text-lg mb-4 text-gray-800">اتصال قاعدة البيانات</h3>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">نوع قاعدة البيانات</label>
+                                    <select id="dbType" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500">
+                                        <option value="localStorage">التخزين المحلي (LocalStorage)</option>
+                                        <option value="mysql">MySQL</option>
+                                    </select>
+                                </div>
+                                <div id="mysqlConfig" class="hidden space-y-4">
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">عنوان الخادم</label>
+                                        <input type="text" id="dbHost" placeholder="localhost" class="w-full p-3 border border-gray-300 rounded-lg">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">اسم المستخدم</label>
+                                        <input type="text" id="dbUser" placeholder="root" class="w-full p-3 border border-gray-300 rounded-lg">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">كلمة المرور</label>
+                                        <input type="password" id="dbPassword" class="w-full p-3 border border-gray-300 rounded-lg">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">اسم قاعدة البيانات</label>
+                                        <input type="text" id="dbName" placeholder="exam_system" class="w-full p-3 border border-gray-300 rounded-lg">
+                                    </div>
+                                    <button id="testConnectionBtn" class="bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded-lg">
+                                        <i class="fas fa-plug ml-2"></i> اختبار الاتصال
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Statistics -->
+                        <div class="mb-6">
+                            <h3 class="font-semibold text-lg mb-4 text-gray-800">إحصائيات النظام</h3>
+                            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                <div class="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                                    <h4 class="font-semibold text-blue-800 mb-2">إجمالي الطلاب</h4>
+                                    <p class="text-2xl font-bold text-blue-900" id="totalStudentsStats">0</p>
+                                </div>
+                                <div class="bg-green-50 p-4 rounded-lg border border-green-200">
+                                    <h4 class="font-semibold text-green-800 mb-2">إجمالي الأسئلة</h4>
+                                    <p class="text-2xl font-bold text-green-900" id="totalQuestionsStats">0</p>
+                                </div>
+                                <div class="bg-purple-50 p-4 rounded-lg border border-purple-200">
+                                    <h4 class="font-semibold text-purple-800 mb-2">إجمالي المواد</h4>
+                                    <p class="text-2xl font-bold text-purple-900" id="totalSubjectsStats">0</p>
+                                </div>
+                                <div class="bg-orange-50 p-4 rounded-lg border border-orange-200">
+                                    <h4 class="font-semibold text-orange-800 mb-2">النتائج المحفوظة</h4>
+                                    <p class="text-2xl font-bold text-orange-900" id="totalResultsStats">0</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div class="bg-gray-50 rounded-lg p-6">
+                                <h3 class="font-semibold text-lg mb-4 text-gray-800">نسخ احتياطي</h3>
+                                <div class="space-y-3">
+                                    <button id="exportAllDataBtn" class="w-full bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded-lg flex items-center justify-center transition-colors">
+                                        <i class="fas fa-download ml-2"></i> تصدير كافة البيانات
+                                    </button>
+                                    <button id="createBackupBtn" class="w-full bg-teal-500 hover:bg-teal-600 text-white py-2 px-4 rounded-lg flex items-center justify-center transition-colors">
+                                        <i class="fas fa-save ml-2"></i> نسخة احتياطية JSON
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="bg-gray-50 rounded-lg p-6">
+                                <h3 class="font-semibold text-lg mb-4 text-gray-800">استعادة واستيراد</h3>
+                                <div class="space-y-3">
+                                    <button id="importAllDataBtn" class="w-full bg-orange-500 hover:bg-orange-600 text-white py-2 px-4 rounded-lg flex items-center justify-center transition-colors">
+                                        <i class="fas fa-upload ml-2"></i> استيراد كافة البيانات
+                                    </button>
+                                    <button id="restoreBackupBtn" class="w-full bg-amber-500 hover:bg-amber-600 text-white py-2 px-4 rounded-lg flex items-center justify-center transition-colors">
+                                        <i class="fas fa-undo ml-2"></i> استعادة نسخة احتياطية
+                                    </button>
+                                    <button id="clearAllDataBtn" class="w-full bg-red-500 hover:bg-red-600 text-white py-2 px-4 rounded-lg flex items-center justify-center transition-colors">
+                                        <i class="fas fa-trash ml-2"></i> مسح كافة البيانات
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Student Waiting Screen -->
+    <div id="studentWaitingScreen" class="hidden flex items-center justify-center min-h-screen gradient-bg">
+        <div class="text-center p-8 max-w-2xl glass-effect rounded-2xl">
+            <div class="mb-8">
+                <i class="fas fa-hourglass-half text-6xl text-purple-600 animate-pulse"></i>
+            </div>
+            <h2 class="text-3xl font-bold text-gray-800 mb-4">مرحباً بك في نظام الاختبارات</h2>
+            <p class="text-xl text-gray-600 mb-8">جاري انتظار موافقة المشرف لبدء الاختبار</p>
+            <div class="bg-white rounded-lg shadow p-6 inline-block">
+                <div class="flex items-center justify-center space-x-4 space-x-reverse">
+                    <div class="text-center">
+                        <p class="text-sm text-gray-500">رقم الجلوس</p>
+                        <p class="font-semibold text-lg" id="studentIdDisplay">-</p>
+                    </div>
+                    <div class="text-center">
+                        <p class="text-sm text-gray-500">حالة الاختبار</p>
+                        <p class="font-semibold text-yellow-600" id="examStatus">في انتظار الموافقة</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Student Exam Screen -->
+    <div id="studentExamScreen" class="hidden flex items-center justify-center min-h-screen bg-gray-100">
+        <div class="w-full max-w-4xl p-8 bg-white rounded-xl shadow-lg">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-bold" id="examTitle">اختبار علوم الحاسوب</h2>
+                <div class="bg-purple-100 text-purple-800 px-4 py-2 rounded-full font-semibold">
+                    الوقت المتبقي: <span id="examTimer">30:00</span>
+                </div>
+            </div>
+            
+            <div id="examQuestions" class="space-y-6">
+                <!-- Questions will be loaded dynamically -->
+            </div>
+            
+            <div class="mt-8 flex justify-end">
+                <button id="submitExam" class="bg-green-500 hover:bg-green-600 text-white px-6 py-3 rounded-lg font-semibold transition-colors">
+                    <i class="fas fa-check ml-2"></i> إنهاء الاختبار
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for forms -->
+    <div id="modal" class="hidden fixed inset-0 modal-backdrop overflow-y-auto h-full w-full z-50">
+        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-2xl bg-white modal-content">
+            <div class="mt-3">
+                <h3 class="text-lg font-medium text-gray-900 mb-4" id="modalTitle">عنوان النافذة</h3>
+                <div id="modalContent">
+                    <!-- Content will be loaded here -->
+                </div>
+                <div class="flex justify-end space-x-3 space-x-reverse mt-6">
+                    <button id="modalCancel" class="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors">إلغاء</button>
+                    <button id="modalSave" class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors">حفظ</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // بيانات التطبيق المحدثة
+        const appData = {
+            students: [],
+            questions: [],
+            classes: [
+                { id: 1, name: 'الأول' },
+                { id: 2, name: 'الثاني' },
+                { id: 3, name: 'الثالث' },
+                { id: 4, name: 'الرابع' }
+            ],
+            majors: [
+                { id: 1, name: 'علوم الحاسوب', classIds: [1, 2, 3, 4] },
+                { id: 2, name: 'هندسة البرمجيات', classIds: [1, 2, 3, 4] },
+                { id: 3, name: 'أمن المعلومات', classIds: [1, 2, 3, 4] }
+            ],
+            subjects: [
+                // مواد عامة (مشتركة بين التخصصات)
+                { id: 1, name: 'الرياضيات', majorIds: [1, 2, 3], classIds: [1, 2] },
+                { id: 2, name: 'اللغة الإنجليزية', majorIds: [1, 2, 3], classIds: [1, 2, 3, 4] },
+                { id: 3, name: 'مهارات الحاسوب', majorIds: [1, 2, 3], classIds: [1] },
+                
+                // مواد علوم الحاسوب
+                { id: 4, name: 'برمجة الحاسوب', majorIds: [1], classIds: [1, 2] },
+                { id: 5, name: 'هياكل البيانات', majorIds: [1], classIds: [2] },
+                { id: 6, name: 'قواعد البيانات', majorIds: [1], classIds: [3] },
+                { id: 7, name: 'الذكاء الاصطناعي', majorIds: [1], classIds: [3, 4] },
+                
+                // مواد هندسة البرمجيات
+                { id: 8, name: 'أساسيات البرمجة', majorIds: [2], classIds: [1] },
+                { id: 9, name: 'هندسة المتطلبات', majorIds: [2], classIds: [2] },
+                { id: 10, name: 'اختبار البرمجيات', majorIds: [2], classIds: [2, 3] },
+                { id: 11, name: 'إدارة المشاريع', majorIds: [2], classIds: [3, 4] },
+                
+                // مواد أمن المعلومات
+                { id: 12, name: 'مقدمة في أمن المعلومات', majorIds: [3], classIds: [1] },
+                { id: 13, name: 'التشفير', majorIds: [3], classIds: [2, 3] },
+                { id: 14, name: 'أمن الشبكات', majorIds: [3], classIds: [2, 3] },
+                { id: 15, name: 'اختبار الاختراق', majorIds: [3], classIds: [4] },
+                
+                // مواد مشتركة متقدمة
+                { id: 16, name: 'مشروع التخرج', majorIds: [1, 2, 3], classIds: [4] }
+            ],
+            connectedStudents: [],
+            currentExam: null,
+            examResults: [],
+            currentStudentId: null,
+            examTimer: null,
+            dbConfig: {
+                type: 'localStorage',
+                mysql: {
+                    host: 'localhost',
+                    user: 'root',
+                    password: '',
+                    database: 'exam_system'
+                }
+            }
+        };
+
+        // متغيرات عامة
+        let currentModalType = '';
+        let editingId = null;
+
+        // عند تحميل الصفحة
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeApp();
+            setupEventListeners();
+            loadSavedData();
+            updateAllDisplays();
+        });
+
+        // تهيئة التطبيق
+        function initializeApp() {
+            console.log('تهيئة نظام الاختبارات الإلكترونية المحسّن...');
+            hideAllScreens();
+            document.getElementById('loginScreen').classList.remove('hidden');
+            showContent('dashboard');
+        }
+
+        // إعداد مستمعي الأحداث
+        function setupEventListeners() {
+            // تسجيل الدخول
+            document.getElementById('loginForm').addEventListener('submit', handleLogin);
+            document.getElementById('logoutAdmin').addEventListener('click', handleLogout);
+            
+            // أزرار لوحة التحكم
+            document.getElementById('configureExamBtn').addEventListener('click', configureExam);
+            document.getElementById('startExamBtn').addEventListener('click', startExam);
+            document.getElementById('approveAllBtn').addEventListener('click', approveAllStudents);
+            document.getElementById('exportResultsBtn').addEventListener('click', () => exportData('results'));
+            document.getElementById('refreshStudentsBtn').addEventListener('click', refreshConnectedStudents);
+            
+            // إدارة الطلاب
+            document.getElementById('addStudentBtn').addEventListener('click', showAddStudentModal);
+            document.getElementById('importStudentsBtn').addEventListener('click', () => importData('students'));
+            document.getElementById('exportStudentsBtn').addEventListener('click', () => exportData('students'));
+            document.getElementById('studentSearch').addEventListener('input', searchStudents);
+            
+            // إدارة الأسئلة
+            document.getElementById('addQuestionBtn').addEventListener('click', showAddQuestionModal);
+            document.getElementById('importQuestionsBtn').addEventListener('click', () => importData('questions'));
+            document.getElementById('exportQuestionsBtn').addEventListener('click', () => exportData('questions'));
+            document.getElementById('questionSearch').addEventListener('input', searchQuestions);
+            
+            // إدارة المواد الدراسية
+            document.getElementById('addClassBtn').addEventListener('click', showAddClassModal);
+            document.getElementById('addMajorBtn').addEventListener('click', showAddMajorModal);
+            document.getElementById('addSubjectBtn').addEventListener('click', showAddSubjectModal);
+            
+            // قاعدة البيانات
+            document.getElementById('dbType').addEventListener('change', handleDbTypeChange);
+            document.getElementById('testConnectionBtn')?.addEventListener('click', testDbConnection);
+            document.getElementById('exportAllDataBtn').addEventListener('click', () => exportData('all'));
+            document.getElementById('createBackupBtn').addEventListener('click', createBackup);
+            document.getElementById('importAllDataBtn').addEventListener('click', () => importData('all'));
+            document.getElementById('restoreBackupBtn').addEventListener('click', restoreBackup);
+            document.getElementById('clearAllDataBtn').addEventListener('click', clearAllData);
+            
+            // أزرار الطلاب
+            document.getElementById('submitExam').addEventListener('click', submitExam);
+            
+            // النوافذ المنبثقة
+            document.getElementById('modalCancel').addEventListener('click', hideModal);
+            document.getElementById('modalSave').addEventListener('click', handleModalSave);
+            document.getElementById('modal').addEventListener('click', handleModalOutsideClick);
+            
+            // التنقل
+            document.querySelectorAll('.nav-link').forEach(link => {
+                link.addEventListener('click', handleNavigation);
+            });
+        }
+
+        // تحميل البيانات المحفوظة
+        function loadSavedData() {
+            try {
+                const savedData = localStorage.getItem('examSystemData');
+                if (savedData) {
+                    const parsedData = JSON.parse(savedData);
+                    Object.assign(appData, parsedData);
+                    console.log('تم تحميل البيانات المحفوظة بنجاح');
+                }
+            } catch (error) {
+                console.error('خطأ في تحميل البيانات:', error);
+            }
+        }
+
+        // حفظ البيانات
+        function saveData() {
+            try {
+                if (appData.dbConfig.type === 'localStorage') {
+                    localStorage.setItem('examSystemData', JSON.stringify(appData));
+                } else if (appData.dbConfig.type === 'mysql') {
+                    // هنا يمكن إضافة كود حفظ البيانات في MySQL
+                    console.log('حفظ في MySQL - يحتاج لتطبيق backend');
+                }
+                return true;
+            } catch (error) {
+                console.error('خطأ في حفظ البيانات:', error);
+                alert('خطأ في حفظ البيانات');
+                return false;
+            }
+        }
+
+        // إخفاء جميع الشاشات
+        function hideAllScreens() {
+            document.getElementById('loginScreen').classList.add('hidden');
+            document.getElementById('adminDashboard').classList.add('hidden');
+            document.getElementById('studentWaitingScreen').classList.add('hidden');
+            document.getElementById('studentExamScreen').classList.add('hidden');
+        }
+
+        // تسجيل الدخول
+        function handleLogin(e) {
+            e.preventDefault();
+            
+            const userType = document.getElementById('user-type').value;
+            const idNumber = document.getElementById('id-number').value.trim();
+            const password = document.getElementById('password').value.trim();
+            
+            if (!idNumber || !password) {
+                alert('الرجاء إدخال جميع البيانات المطلوبة');
+                return;
+            }
+            
+            if (userType === 'admin') {
+                if (idNumber === 'admin' && password === 'admin123') {
+                    showAdminDashboard();
+                } else {
+                    alert('بيانات المدير غير صحيحة');
+                }
+            } else if (userType === 'student') {
+                const student = appData.students.find(s => s.id === idNumber && s.password === password);
+                if (student) {
+                    showStudentInterface(student);
+                } else {
+                    alert('بيانات الطالب غير صحيحة');
+                }
+            }
+        }
+
+        // عرض لوحة تحكم المدير
+        function showAdminDashboard() {
+            hideAllScreens();
+            document.getElementById('adminDashboard').classList.remove('hidden');
+            updateAllDisplays();
+            
+            // حفظ تلقائي كل 30 ثانية
+            setInterval(() => {
+                saveData();
+            }, 30000);
+        }
+
+        // عرض واجهة الطالب
+        function showStudentInterface(student) {
+            appData.currentStudentId = student.id;
+            
+            // إضافة الطالب للمتصلين
+            if (!appData.connectedStudents.find(s => s.id === student.id)) {
+                appData.connectedStudents.push({
+                    id: student.id,
+                    name: student.name,
+                    major: getMajorById(student.majorId)?.name || '-',
+                    status: 'متصل',
+                    examStatus: 'في انتظار الموافقة',
+                    score: null,
+                    connectionTime: new Date().toLocaleString()
+                });
+                saveData();
+            }
+            
+            hideAllScreens();
+            document.getElementById('studentWaitingScreen').classList.remove('hidden');
+            document.getElementById('studentIdDisplay').textContent = student.id;
+            
+            // فحص حالة الاختبار
+            checkExamStatus(student.id);
+        }
+
+        // التنقل في لوحة الإدمن
+        function handleNavigation(e) {
+            e.preventDefault();
+            const contentType = e.target.getAttribute('data-content');
+            if (contentType) {
+                showContent(contentType);
+            }
+        }
+
+        // عرض المحتوى المحدد
+        function showContent(contentType) {
+            // إخفاء جميع أقسام المحتوى
+            document.querySelectorAll('.content-section').forEach(el => {
+                el.classList.add('hidden');
+            });
+            
+            // عرض القسم المحدد
+            const targetContent = document.getElementById(`${contentType}-content`);
+            if (targetContent) {
+                targetContent.classList.remove('hidden');
+            }
+            
+            // تحديث التنقل
+            document.querySelectorAll('.nav-link').forEach(el => {
+                el.classList.remove('active', 'bg-white', 'bg-opacity-20');
+            });
+            
+            const activeLink = document.querySelector(`[data-content="${contentType}"]`);
+            if (activeLink) {
+                activeLink.classList.add('active', 'bg-white', 'bg-opacity-20');
+            }
+            
+            // تحديث المحتوى
+            switch (contentType) {
+                case 'students':
+                    updateStudentsList();
+                    break;
+                case 'questions':
+                    updateQuestionsList();
+                    break;
+                case 'subjects':
+                    updateSubjectsTree();
+                    break;
+                case 'database':
+                    updateDatabaseStats();
+                    break;
+                case 'dashboard':
+                default:
+                    updateAdminDashboard();
+                    break;
+            }
+        }
+
+        // تحديث جميع العروض
+        function updateAllDisplays() {
+            updateAdminDashboard();
+            updateStudentsList();
+            updateQuestionsList();
+            updateSubjectsTree();
+            updateDatabaseStats();
+        }
+
+        // تحديث لوحة التحكم
+        function updateAdminDashboard() {
+            document.getElementById('studentsCount').textContent = appData.students.length;
+            document.getElementById('connectedStudentsCount').textContent = appData.connectedStudents.length;
+            document.getElementById('questionsCount').textContent = appData.questions.length;
+            document.getElementById('subjectsCount').textContent = appData.subjects.length;
+            
+            // تحديث قائمة الطلاب المتصلين
+            const connectedStudentsList = document.getElementById('connectedStudentsList');
+            if (connectedStudentsList) {
+                connectedStudentsList.innerHTML = '';
+                
+                appData.connectedStudents.forEach(student => {
+                    const score = student.score || '--';
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td class="text-right">${student.id}</td>
+                        <td class="text-right">${student.name}</td>
+                        <td class="text-right">${student.major}</td>
+                        <td class="text-right">
+                            <span class="px-3 py-1 rounded-full text-xs font-semibold ${getStatusClass(student.examStatus)}">
+                                ${student.examStatus}
+                            </span>
+                        </td>
+                        <td class="text-right font-bold ${getScoreClass(score)}">${score}</td>
+                    `;
+                    connectedStudentsList.appendChild(row);
+                });
+            }
+        }
+
+        // تحديث قائمة الطلاب
+        function updateStudentsList() {
+            const studentsList = document.getElementById('studentsList');
+            if (!studentsList) return;
+            
+            studentsList.innerHTML = '';
+            appData.students.forEach(student => {
+                const studentClass = getClassById(student.classId)?.name || '-';
+                const major = getMajorById(student.majorId)?.name || '-';
+                const subjects = student.subjectIds.map(id => getSubjectById(id)?.name).filter(Boolean).join(', ');
+                
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td class="text-right">${student.id}</td>
+                    <td class="text-right">${student.name}</td>
+                    <td class="text-right">${studentClass}</td>
+                    <td class="text-right">${major}</td>
+                    <td class="text-right">${subjects}</td>
+                    <td class="text-right">${student.password}</td>
+                    <td class="text-right">
+                        <button onclick="editStudent('${student.id}')" class="text-blue-600 hover:text-blue-800 ml-2">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button onclick="deleteStudent('${student.id}')" class="text-red-600 hover:text-red-800">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </td>
+                `;
+                studentsList.appendChild(row);
+            });
+        }
+
+        // تحديث قائمة الأسئلة
+        function updateQuestionsList() {
+            const questionsList = document.getElementById('questionsList');
+            if (!questionsList) return;
+            
+            questionsList.innerHTML = '';
+            appData.questions.forEach((question, index) => {
+                const subject = getSubjectById(question.subjectId)?.name || '-';
+                
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td class="text-right">${subject}</td>
+                    <td class="text-right">${question.text.substring(0, 50)}...</td>
+                    <td class="text-right">${getQuestionTypeText(question.type)}</td>
+                    <td class="text-right">${question.correctAnswer}</td>
+                    <td class="text-right">${question.score}</td>
+                    <td class="text-right">
+                        <button onclick="editQuestion(${index})" class="text-blue-600 hover:text-blue-800 ml-2">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button onclick="deleteQuestion(${index})" class="text-red-600 hover:text-red-800">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </td>
+                `;
+                questionsList.appendChild(row);
+            });
+        }
+
+        // تحديث الهيكل الشجري للمواد
+        function updateSubjectsTree() {
+            const treeContainer = document.getElementById('subjectsTree');
+            if (!treeContainer) return;
+            
+            let treeHTML = '';
+            
+            // عرض الصفوف
+            appData.classes.forEach(classItem => {
+                const majorsInClass = appData.majors.filter(m => m.classIds.includes(classItem.id));
+                
+                treeHTML += `
+                    <div class="tree-node">
+                        <div class="flex items-center p-3 cursor-pointer hover:bg-purple-50 rounded-lg" onclick="toggleTreeNode(this)">
+                            <i class="fas fa-chevron-down ml-2 text-purple-600"></i>
+                            <i class="fas fa-layer-group ml-2 text-purple-600"></i>
+                            <span class="font-semibold text-lg">${classItem.name}</span>
+                            <div class="mr-auto flex gap-2">
+                                <button onclick="editClass(${classItem.id})" class="text-blue-600 hover:text-blue-800" title="تعديل">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button onclick="deleteClass(${classItem.id})" class="text-red-600 hover:text-red-800" title="حذف">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="tree-content expanded">
+                `;
+                
+                // عرض التخصصات في الصف
+                majorsInClass.forEach(major => {
+                    const subjectsInMajor = appData.subjects.filter(s => 
+                        s.majorIds.includes(major.id) && s.classIds.includes(classItem.id)
+                    );
+                    
+                    treeHTML += `
+                        <div class="tree-node">
+                            <div class="flex items-center p-3 cursor-pointer hover:bg-green-50 rounded-lg" onclick="toggleTreeNode(this)">
+                                <i class="fas fa-chevron-down ml-2 text-green-600"></i>
+                                <i class="fas fa-graduation-cap ml-2 text-green-600"></i>
+                                <span class="font-medium">${major.name}</span>
+                                <div class="mr-auto flex gap-2">
+                                    <button onclick="editSubject(${subject.id})" class="text-blue-600 hover:text-blue-800" title="تعديل">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <button onclick="deleteSubject(${subject.id})" class="text-red-600 hover:text-red-800" title="حذف">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    
+                    treeHTML += `
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                treeHTML += `
+                        </div>
+                    </div>
+                `;
+            });
+            
+            treeContainer.innerHTML = treeHTML || '<p class="text-gray-500 text-center">لا توجد بيانات</p>';
+        }
+
+        // تحديث إحصائيات قاعدة البيانات
+        function updateDatabaseStats() {
+            document.getElementById('totalStudentsStats').textContent = appData.students.length;
+            document.getElementById('totalQuestionsStats').textContent = appData.questions.length;
+            document.getElementById('totalSubjectsStats').textContent = appData.subjects.length;
+            document.getElementById('totalResultsStats').textContent = (appData.examResults || []).length;
+        }
+
+        // وظائف مساعدة للحصول على البيانات
+        function getClassById(id) {
+            return appData.classes.find(c => c.id === id);
+        }
+
+        function getMajorById(id) {
+            return appData.majors.find(m => m.id === id);
+        }
+
+        function getSubjectById(id) {
+            return appData.subjects.find(s => s.id === id);
+        }
+
+        function getSubjectsForMajorAndClass(majorId, classId) {
+            return appData.subjects.filter(s => 
+                s.majorIds.includes(majorId) && s.classIds.includes(classId)
+            );
+        }
+
+        // وظائف مساعدة للحصول على فئات CSS
+        function getStatusClass(status) {
+            switch (status) {
+                case 'في انتظار الموافقة':
+                    return 'bg-yellow-100 text-yellow-800';
+                case 'جاري الاختبار':
+                    return 'bg-blue-100 text-blue-800';
+                case 'مكتمل':
+                    return 'bg-green-100 text-green-800';
+                case 'تمت الموافقة':
+                    return 'bg-purple-100 text-purple-800';
+                default:
+                    return 'bg-gray-100 text-gray-800';
+            }
+        }
+
+        function getScoreClass(score) {
+            if (score === '--' || score === null) return 'text-gray-600';
+            const numScore = parseInt(score);
+            if (numScore >= 80) return 'text-green-600';
+            if (numScore >= 60) return 'text-yellow-600';
+            return 'text-red-600';
+        }
+
+        function getQuestionTypeText(type) {
+            switch (type) {
+                case 'multiple_choice':
+                    return 'اختيار من متعدد';
+                case 'multiple_select':
+                    return 'اختيار متعدد';
+                case 'essay':
+                    return 'مقالي';
+                default:
+                    return 'غير محدد';
+            }
+        }
+
+        // تبديل عقدة الشجرة
+        function toggleTreeNode(element) {
+            const content = element.nextElementSibling;
+            const icon = element.querySelector('.fa-chevron-down, .fa-chevron-right');
+            
+            if (content.classList.contains('expanded')) {
+                content.classList.remove('expanded');
+                icon.classList.remove('fa-chevron-down');
+                icon.classList.add('fa-chevron-right');
+            } else {
+                content.classList.add('expanded');
+                icon.classList.remove('fa-chevron-right');
+                icon.classList.add('fa-chevron-down');
+            }
+        }
+
+        // النوافذ المنبثقة
+        function showModal(title, content) {
+            document.getElementById('modalTitle').textContent = title;
+            document.getElementById('modalContent').innerHTML = content;
+            document.getElementById('modal').classList.remove('hidden');
+        }
+
+        function hideModal() {
+            document.getElementById('modal').classList.add('hidden');
+            currentModalType = '';
+            editingId = null;
+        }
+
+        function handleModalOutsideClick(e) {
+            if (e.target === document.getElementById('modal')) {
+                hideModal();
+            }
+        }
+
+        // عرض نافذة إضافة صف
+        function showAddClassModal() {
+            currentModalType = 'class';
+            const content = `
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">اسم الصف</label>
+                        <input type="text" id="className" class="mt-1 block w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500" placeholder="مثال: الخامس">
+                    </div>
+                </div>
+            `;
+            showModal('إضافة صف دراسي', content);
+        }
+
+        // عرض نافذة إضافة تخصص
+        function showAddMajorModal() {
+            currentModalType = 'major';
+            const content = `
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">اسم التخصص</label>
+                        <input type="text" id="majorName" class="mt-1 block w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500" placeholder="مثال: الشبكات">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">الصفوف المتاحة</label>
+                        <div class="mt-2 space-y-2">
+                            ${appData.classes.map(c => `
+                                <label class="flex items-center">
+                                    <input type="checkbox" name="classIds" value="${c.id}" class="ml-2 text-purple-600 focus:ring-purple-500 rounded">
+                                    <span>${c.name}</span>
+                                </label>
+                            `).join('')}
+                        </div>
+                    </div>
+                </div>
+            `;
+            showModal('إضافة تخصص', content);
+        }
+
+        // عرض نافذة إضافة مادة
+        function showAddSubjectModal() {
+            currentModalType = 'subject';
+            const content = `
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">اسم المادة</label>
+                        <input type="text" id="subjectName" class="mt-1 block w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500" placeholder="مثال: البرمجة المتقدمة">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">التخصصات</label>
+                        <div class="mt-2 space-y-2 max-h-40 overflow-y-auto">
+                            ${appData.majors.map(m => `
+                                <label class="flex items-center">
+                                    <input type="checkbox" name="majorIds" value="${m.id}" class="ml-2 text-purple-600 focus:ring-purple-500 rounded">
+                                    <span>${m.name}</span>
+                                </label>
+                            `).join('')}
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">الصفوف</label>
+                        <div class="mt-2 space-y-2">
+                            ${appData.classes.map(c => `
+                                <label class="flex items-center">
+                                    <input type="checkbox" name="classIds" value="${c.id}" class="ml-2 text-purple-600 focus:ring-purple-500 rounded">
+                                    <span>${c.name}</span>
+                                </label>
+                            `).join('')}
+                        </div>
+                    </div>
+                </div>
+            `;
+            showModal('إضافة مادة دراسية', content);
+        }
+
+        // عرض نافذة إضافة طالب
+        function showAddStudentModal() {
+            currentModalType = 'student';
+            const content = `
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">رقم الجلوس</label>
+                        <input type="text" id="studentId" class="mt-1 block w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">اسم الطالب</label>
+                        <input type="text" id="studentName" class="mt-1 block w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">الصف</label>
+                        <select id="studentClass" class="mt-1 block w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500" onchange="updateMajorOptions()">
+                            <option value="">اختر الصف</option>
+                            ${appData.classes.map(c => `<option value="${c.id}">${c.name}</option>`).join('')}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">التخصص</label>
+                        <select id="studentMajor" class="mt-1 block w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500" onchange="updateSubjectOptions()">
+                            <option value="">اختر التخصص</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">المواد</label>
+                        <div id="subjectsList" class="mt-2 space-y-2 max-h-40 overflow-y-auto border border-gray-300 rounded-lg p-3">
+                            <p class="text-gray-500 text-sm">اختر الصف والتخصص أولاً</p>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">كلمة المرور (5 أرقام)</label>
+                        <div class="flex gap-2">
+                            <input type="text" id="studentPassword" pattern="[0-9]{5}" maxlength="5" class="flex-1 mt-1 block w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500">
+                            <button type="button" onclick="generateRandomPassword()" class="mt-1 px-4 py-3 bg-gray-200 hover:bg-gray-300 rounded-lg transition-colors">
+                                <i class="fas fa-dice"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            showModal('إضافة طالب جديد', content);
+        }
+
+        // عرض نافذة إضافة سؤال
+        function showAddQuestionModal() {
+            currentModalType = 'question';
+            const content = `
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">المادة</label>
+                        <select id="questionSubject" class="mt-1 block w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500">
+                            <option value="">اختر المادة</option>
+                            ${appData.subjects.map(s => `<option value="${s.id}">${s.name}</option>`).join('')}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">نوع السؤال</label>
+                        <select id="questionType" class="mt-1 block w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500" onchange="handleQuestionTypeChange()">
+                            <option value="multiple_choice">اختيار من متعدد</option>
+                            <option value="multiple_select">اختيار متعدد</option>
+                            <option value="essay">مقالي</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">نص السؤال</label>
+                        <textarea id="questionText" class="mt-1 block w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500" rows="3"></textarea>
+                    </div>
+                    <div id="optionsContainer">
+                        <label class="block text-sm font-medium text-gray-700">الخيارات</label>
+                        <div id="optionsList" class="mt-2 space-y-2">
+                            <input type="text" class="option-input block w-full p-3 border border-gray-300 rounded-lg" placeholder="الخيار 1">
+                            <input type="text" class="option-input block w-full p-3 border border-gray-300 rounded-lg" placeholder="الخيار 2">
+                            <input type="text" class="option-input block w-full p-3 border border-gray-300 rounded-lg" placeholder="الخيار 3">
+                            <input type="text" class="option-input block w-full p-3 border border-gray-300 rounded-lg" placeholder="الخيار 4">
+                        </div>
+                        <button type="button" onclick="addOption()" class="mt-2 px-3 py-1 bg-purple-500 hover:bg-purple-600 text-white rounded text-sm transition-colors">
+                            <i class="fas fa-plus ml-1"></i> إضافة خيار
+                        </button>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">الإجابة الصحيحة</label>
+                        <input type="text" id="questionAnswer" class="mt-1 block w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">درجة السؤال</label>
+                        <input type="number" id="questionScore" class="mt-1 block w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500" value="1" min="1">
+                    </div>
+                </div>
+            `;
+            showModal('إضافة سؤال جديد', content);
+        }
+
+        // تحديث خيارات التخصص عند اختيار الصف
+        function updateMajorOptions() {
+            const classId = parseInt(document.getElementById('studentClass').value);
+            const majorSelect = document.getElementById('studentMajor');
+            
+            majorSelect.innerHTML = '<option value="">اختر التخصص</option>';
+            
+            if (classId) {
+                const majorsInClass = appData.majors.filter(m => m.classIds.includes(classId));
+                majorsInClass.forEach(major => {
+                    majorSelect.innerHTML += `<option value="${major.id}">${major.name}</option>`;
+                });
+            }
+            
+            updateSubjectOptions();
+        }
+
+        // تحديث خيارات المواد عند اختيار التخصص
+        function updateSubjectOptions() {
+            const classId = parseInt(document.getElementById('studentClass').value);
+            const majorId = parseInt(document.getElementById('studentMajor').value);
+            const subjectsList = document.getElementById('subjectsList');
+            
+            if (!classId || !majorId) {
+                subjectsList.innerHTML = '<p class="text-gray-500 text-sm">اختر الصف والتخصص أولاً</p>';
+                return;
+            }
+            
+            const subjects = getSubjectsForMajorAndClass(majorId, classId);
+            
+            if (subjects.length === 0) {
+                subjectsList.innerHTML = '<p class="text-gray-500 text-sm">لا توجد مواد متاحة</p>';
+                return;
+            }
+            
+            subjectsList.innerHTML = subjects.map(subject => `
+                <label class="flex items-center">
+                    <input type="checkbox" name="subjectIds" value="${subject.id}" class="ml-2 text-purple-600 focus:ring-purple-500 rounded">
+                    <span>${subject.name}</span>
+                    ${subject.majorIds.length > 1 ? '<span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded mr-2">مادة مشتركة</span>' : ''}
+                </label>
+            `).join('');
+        }
+
+        // توليد كلمة مرور عشوائية
+        function generateRandomPassword() {
+            const password = Math.floor(10000 + Math.random() * 90000).toString();
+            document.getElementById('studentPassword').value = password;
+        }
+
+        // التعامل مع تغيير نوع السؤال
+        function handleQuestionTypeChange() {
+            const questionType = document.getElementById('questionType').value;
+            const optionsContainer = document.getElementById('optionsContainer');
+            
+            if (questionType === 'essay') {
+                optionsContainer.style.display = 'none';
+            } else {
+                optionsContainer.style.display = 'block';
+            }
+        }
+
+        // إضافة خيار جديد للسؤال
+        function addOption() {
+            const optionsList = document.getElementById('optionsList');
+            const optionCount = optionsList.children.length + 1;
+            
+            const newOption = document.createElement('input');
+            newOption.type = 'text';
+            newOption.className = 'option-input block w-full p-3 border border-gray-300 rounded-lg';
+            newOption.placeholder = `الخيار ${optionCount}`;
+            
+            optionsList.appendChild(newOption);
+        }
+
+        // التعامل مع حفظ النافذة المنبثقة
+        function handleModalSave() {
+            switch (currentModalType) {
+                case 'class':
+                    saveClass();
+                    break;
+                case 'major':
+                    saveMajor();
+                    break;
+                case 'subject':
+                    saveSubject();
+                    break;
+                case 'student':
+                    saveStudent();
+                    break;
+                case 'question':
+                    saveQuestion();
+                    break;
+            }
+        }
+
+        // حفظ صف جديد
+        function saveClass() {
+            const name = document.getElementById('className').value.trim();
+            
+            if (!name) {
+                alert('الرجاء إدخال اسم الصف');
+                return;
+            }
+            
+            const newClass = {
+                id: Date.now(),
+                name: name
+            };
+            
+            appData.classes.push(newClass);
+            saveData();
+            updateSubjectsTree();
+            hideModal();
+            alert('تم إضافة الصف بنجاح');
+        }
+
+        // حفظ تخصص جديد
+        function saveMajor() {
+            const name = document.getElementById('majorName').value.trim();
+            const classIds = Array.from(document.querySelectorAll('input[name="classIds"]:checked'))
+                .map(cb => parseInt(cb.value));
+            
+            if (!name || classIds.length === 0) {
+                alert('الرجاء إدخال اسم التخصص واختيار صف واحد على الأقل');
+                return;
+            }
+            
+            const newMajor = {
+                id: Date.now(),
+                name: name,
+                classIds: classIds
+            };
+            
+            appData.majors.push(newMajor);
+            saveData();
+            updateSubjectsTree();
+            hideModal();
+            alert('تم إضافة التخصص بنجاح');
+        }
+
+        // حفظ مادة جديدة
+        function saveSubject() {
+            const name = document.getElementById('subjectName').value.trim();
+            const majorIds = Array.from(document.querySelectorAll('input[name="majorIds"]:checked'))
+                .map(cb => parseInt(cb.value));
+            const classIds = Array.from(document.querySelectorAll('input[name="classIds"]:checked'))
+                .map(cb => parseInt(cb.value));
+            
+            if (!name || majorIds.length === 0 || classIds.length === 0) {
+                alert('الرجاء ملء جميع الحقول المطلوبة');
+                return;
+            }
+            
+            const newSubject = {
+                id: Date.now(),
+                name: name,
+                majorIds: majorIds,
+                classIds: classIds
+            };
+            
+            appData.subjects.push(newSubject);
+            saveData();
+            updateSubjectsTree();
+            updateAllDisplays();
+            hideModal();
+            alert('تم إضافة المادة بنجاح');
+        }
+
+        // حفظ طالب جديد
+        function saveStudent() {
+            const id = document.getElementById('studentId').value.trim();
+            const name = document.getElementById('studentName').value.trim();
+            const classId = parseInt(document.getElementById('studentClass').value);
+            const majorId = parseInt(document.getElementById('studentMajor').value);
+            const subjectIds = Array.from(document.querySelectorAll('input[name="subjectIds"]:checked'))
+                .map(cb => parseInt(cb.value));
+            const password = document.getElementById('studentPassword').value.trim();
+            
+            if (!id || !name || !classId || !majorId || subjectIds.length === 0 || !password) {
+                alert('الرجاء ملء جميع الحقول المطلوبة');
+                return;
+            }
+            
+            if (!/^[0-9]{5}$/.test(password)) {
+                alert('كلمة المرور يجب أن تكون مكونة من 5 أرقام فقط');
+                return;
+            }
+            
+            if (editingId === null && appData.students.find(s => s.id === id)) {
+                alert('رقم الجلوس موجود مسبقاً');
+                return;
+            }
+            
+            const studentData = {
+                id: id,
+                name: name,
+                classId: classId,
+                majorId: majorId,
+                subjectIds: subjectIds,
+                password: password,
+                email: `${id}@student.edu`
+            };
+            
+            if (editingId !== null) {
+                const index = appData.students.findIndex(s => s.id === editingId);
+                if (index !== -1) {
+                    appData.students[index] = studentData;
+                }
+            } else {
+                appData.students.push(studentData);
+            }
+            
+            saveData();
+            updateStudentsList();
+            updateAllDisplays();
+            hideModal();
+            alert(editingId !== null ? 'تم تحديث بيانات الطالب بنجاح' : 'تم إضافة الطالب بنجاح');
+        }
+
+        // حفظ سؤال جديد
+        function saveQuestion() {
+            const subjectId = parseInt(document.getElementById('questionSubject').value);
+            const type = document.getElementById('questionType').value;
+            const text = document.getElementById('questionText').value.trim();
+            const answer = document.getElementById('questionAnswer').value.trim();
+            const score = parseInt(document.getElementById('questionScore').value);
+            
+            if (!subjectId || !text || !answer || !score) {
+                alert('الرجاء ملء جميع الحقول المطلوبة');
+                return;
+            }
+            
+            const questionData = {
+                subjectId: subjectId,
+                type: type,
+                text: text,
+                correctAnswer: answer,
+                score: score
+            };
+            
+            if (type !== 'essay') {
+                const options = Array.from(document.querySelectorAll('.option-input'))
+                    .map(input => input.value.trim())
+                    .filter(value => value);
+                
+                if (options.length < 2) {
+                    alert('الرجاء إدخال خيارين على الأقل');
+                    return;
+                }
+                
+                questionData.options = options;
+            }
+            
+            appData.questions.push(questionData);
+            saveData();
+            updateQuestionsList();
+            updateAllDisplays();
+            hideModal();
+            alert('تم إضافة السؤال بنجاح');
+        }
+
+        // البحث في الطلاب
+        function searchStudents() {
+            const searchTerm = document.getElementById('studentSearch').value.toLowerCase();
+            const filteredStudents = appData.students.filter(student => 
+                student.id.toLowerCase().includes(searchTerm) ||
+                student.name.toLowerCase().includes(searchTerm) ||
+                getMajorById(student.majorId)?.name.toLowerCase().includes(searchTerm) ||
+                getClassById(student.classId)?.name.toLowerCase().includes(searchTerm)
+            );
+            
+            updateStudentsListWithData(filteredStudents);
+        }
+
+        // البحث في الأسئلة
+        function searchQuestions() {
+            const searchTerm = document.getElementById('questionSearch').value.toLowerCase();
+            const filteredQuestions = appData.questions.filter(question =>
+                question.text.toLowerCase().includes(searchTerm) ||
+                getSubjectById(question.subjectId)?.name.toLowerCase().includes(searchTerm) ||
+                question.correctAnswer.toLowerCase().includes(searchTerm)
+            );
+            
+            updateQuestionsListWithData(filteredQuestions);
+        }
+
+        // تحديث قائمة الطلاب بالبيانات المفلترة
+        function updateStudentsListWithData(students) {
+            const studentsList = document.getElementById('studentsList');
+            if (!studentsList) return;
+            
+            studentsList.innerHTML = '';
+            students.forEach(student => {
+                const studentClass = getClassById(student.classId)?.name || '-';
+                const major = getMajorById(student.majorId)?.name || '-';
+                const subjects = student.subjectIds.map(id => getSubjectById(id)?.name).filter(Boolean).join(', ');
+                
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td class="text-right">${student.id}</td>
+                    <td class="text-right">${student.name}</td>
+                    <td class="text-right">${studentClass}</td>
+                    <td class="text-right">${major}</td>
+                    <td class="text-right">${subjects}</td>
+                    <td class="text-right">${student.password}</td>
+                    <td class="text-right">
+                        <button onclick="editStudent('${student.id}')" class="text-blue-600 hover:text-blue-800 ml-2">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button onclick="deleteStudent('${student.id}')" class="text-red-600 hover:text-red-800">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </td>
+                `;
+                studentsList.appendChild(row);
+            });
+        }
+
+        // تحديث قائمة الأسئلة بالبيانات المفلترة
+        function updateQuestionsListWithData(questions) {
+            const questionsList = document.getElementById('questionsList');
+            if (!questionsList) return;
+            
+            questionsList.innerHTML = '';
+            questions.forEach((question, index) => {
+                const subject = getSubjectById(question.subjectId)?.name || '-';
+                const originalIndex = appData.questions.indexOf(question);
+                
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td class="text-right">${subject}</td>
+                    <td class="text-right">${question.text.substring(0, 50)}...</td>
+                    <td class="text-right">${getQuestionTypeText(question.type)}</td>
+                    <td class="text-right">${question.correctAnswer}</td>
+                    <td class="text-right">${question.score}</td>
+                    <td class="text-right">
+                        <button onclick="editQuestion(${originalIndex})" class="text-blue-600 hover:text-blue-800 ml-2">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button onclick="deleteQuestion(${originalIndex})" class="text-red-600 hover:text-red-800">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </td>
+                `;
+                questionsList.appendChild(row);
+            });
+        }
+
+        // التعامل مع تغيير نوع قاعدة البيانات
+        function handleDbTypeChange() {
+            const dbType = document.getElementById('dbType').value;
+            const mysqlConfig = document.getElementById('mysqlConfig');
+            
+            if (dbType === 'mysql') {
+                mysqlConfig.classList.remove('hidden');
+            } else {
+                mysqlConfig.classList.add('hidden');
+                                    <button onclick="editMajor(${major.id})" class="text-blue-600 hover:text-blue-800" title="تعديل">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <button onclick="deleteMajor(${major.id})" class="text-red-600 hover:text-red-800" title="حذف">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="tree-content expanded">
+                    `;
+                    
+                    // عرض المواد في التخصص
+                    subjectsInMajor.forEach(subject => {
+                        const isShared = subject.majorIds.length > 1;
+                        treeHTML += `
+                            <div class="flex items-center p-3 hover:bg-orange-50 rounded-lg">
+                                <i class="fas fa-book ml-2 text-orange-600"></i>
+                                <span>${subject.name}</span>
+                                ${isShared ? '<span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded mr-2">مادة مشتركة</span>' : ''}
+                                <div class="mr-auto flex gap-2">
+                
