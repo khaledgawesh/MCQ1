@@ -1636,7 +1636,8 @@
 
     <script>
         // بيانات التطبيق المحدثة
-        const appData = {
+        // Attempt to use appData from script.js if already defined globally, otherwise use this as fallback.
+        window.appData = window.appData || {
             students: [],
             questions: [],
             classes: [
